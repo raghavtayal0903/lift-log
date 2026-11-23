@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiftLog — Personal Workout Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ================= AUTH SCREEN ================= -->
+  <div id="authView" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="brand-header">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 6.5h11v11h-11z" opacity="0" />
+            <path d="M14.4 14.4 9.6 9.6" />
+            <path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z" />
+            <path d="m21.5 21.5-1.4-1.4" />
+            <path d="M3.9 3.9 2.5 2.5" />
+            <path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z" />
+          </svg>
+        </div>
+        <div>
+          <h1>LiftLog</h1>
+          <p>Track every set, weight, and milestone</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" id="tabSignIn" class="auth-tab active">Sign In</button>
+        <button type="button" id="tabSignUp" class="auth-tab">Create Account</button>
+      </div>
+
+      <div id="authError" class="error-banner hidden"></div>
+
+      <form id="authForm" class="stack-form">
+        <div class="form-group">
+          <label for="authEmail">Email Address</label>
+          <input type="email" id="authEmail" required placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" required minlength="6" placeholder="••••••••" />
+        </div>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary btn-full">Sign In</button>
+      </form>
+
+      <div class="divider"><span>or continue with</span></div>
+
+      <div class="oauth-stack">
+        <button type="button" id="googleSignInBtn" class="btn btn-secondary btn-full">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+            <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.8z"/>
+            <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 21.1 7.4 24 12 24z"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <button type="button" id="guestSignInBtn" class="btn btn-ghost btn-full">
+          Quick Demo / Guest Mode
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN APP SCREEN ================= -->
+  <div id="appView" class="app-wrapper hidden">
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <div class="brand-inline">
+          <div class="brand-logo small">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.4 14.4 9.6 9.6" />
+              <path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z" />
+              <path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z" />
+            </svg>
+          </div>
+          <span class="brand-name">LiftLog</span>
+        </div>
+
+        <div class="topbar-actions">
+          <span id="userBadge" class="user-badge">athlete@liftlog.app</span>
+          <button type="button" id="exportCsvBtn" class="btn btn-secondary btn-sm">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export CSV
+          </button>
+          <button type="button" id="signOutBtn" class="btn btn-ghost btn-sm">Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container main-content">
+      <!-- SUMMARY STATS -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-top">
+            <span>Workout Days</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+          <div id="statWorkoutDays" class="stat-value">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <span>Exercises Logged</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+          </div>
+          <div id="statTotalLogs" class="stat-value">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <span>Total Volume</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 20V10" />
+              <path d="M12 20V4" />
+              <path d="M18 20v-6" />
+            </svg>
+          </div>
+          <div id="statTotalVolume" class="stat-value">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-top">
+            <span>Logs This Week</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+          </div>
+          <div id="statThisWeek" class="stat-value">0</div>
+        </div>
+      </section>
+
+      <!-- LOG NEW EXERCISE FORM -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Log Daily Exercise</h2>
+          <span class="panel-subtitle">Entries for the same date automatically group into one Day Card</span>
+        </div>
+
+        <div class="quick-chips" id="quickChips">
+          <span class="chip-label">Quick pick:</span>
+          <button type="button" class="chip" data-ex="Bench Press">Bench Press</button>
+          <button type="button" class="chip" data-ex="Squat">Squat</button>
+          <button type="button" class="chip" data-ex="Deadlift">Deadlift</button>
+          <button type="button" class="chip" data-ex="Overhead Press">Overhead Press</button>
+          <button type="button" class="chip" data-ex="Barbell Row">Barbell Row</button>
+          <button type="button" class="chip" data-ex="Pull-Ups">Pull-Ups</button>
+          <button type="button" class="chip" data-ex="Lat Pulldown">Lat Pulldown</button>
+        </div>
+
+        <form id="logForm" class="entry-grid">
+          <div class="form-group">
+            <label for="entryDate">Date</label>
+            <input type="date" id="entryDate" required />
+          </div>
+
+          <div class="form-group">
+            <label for="entryExercise">Exercise</label>
+            <input type="text" id="entryExercise" list="exerciseList" placeholder="e.g. Incline Bench Press" required />
+            <datalist id="exerciseList">
+              <option value="Bench Press"></option>
+              <option value="Incline Dumbbell Press"></option>
+              <option value="Squat"></option>
+              <option value="Romanian Deadlift"></option>
+              <option value="Deadlift"></option>
+              <option value="Overhead Press"></option>
+              <option value="Barbell Row"></option>
+              <option value="Lat Pulldown"></option>
+              <option value="Pull-Ups"></option>
+              <option value="Dumbbell Curl"></option>
+              <option value="Tricep Pushdown"></option>
+              <option value="Leg Press"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="entryWeight">Weight</label>
+            <div class="input-addon">
+              <input type="number" id="entryWeight" step="0.5" min="0" placeholder="60" required />
+              <select id="entryUnit" aria-label="Weight unit">
+                <option value="kg">kg</option>
+                <option value="lbs">lbs</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="entryReps">Reps</label>
+            <input type="number" id="entryReps" min="1" step="1" placeholder="10" required />
+          </div>
+
+          <div class="form-group span-2">
+            <label for="entryRemarks">Remarks / Notes</label>
+            <input type="text" id="entryRemarks" placeholder="e.g. Felt strong, 2 reps in reserve, increase weight next time" />
+          </div>
+
+          <div class="form-group form-submit-cell">
+            <button type="submit" id="saveEntryBtn" class="btn btn-primary btn-full">
+              + Add to Log
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- FILTER BAR & DAY-GROUPED GRID -->
+      <section class="history-section">
+        <div class="history-toolbar">
+          <div>
+            <h2>Workout Days</h2>
+            <p class="panel-subtitle">Click any day card to view, edit, or add exercises for that session</p>
+          </div>
+
+          <div class="filter-controls">
+            <input type="search" id="searchInput" placeholder="Search exercise or remarks..." />
+            <input type="date" id="filterDateInput" aria-label="Filter by date" />
+            <button type="button" id="clearFiltersBtn" class="btn btn-ghost btn-sm hidden">Clear</button>
+          </div>
+        </div>
+
+        <div id="loadingState" class="empty-state">Loading your workout logs...</div>
+
+        <div id="emptyState" class="empty-state hidden">
+          <h3>No workout days found</h3>
+          <p>Log your first exercise above to create your first daily session card.</p>
+        </div>
+
+        <div id="daysGrid" class="days-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ================= DAY DETAILS MODAL ================= -->
+  <div id="dayModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title-row">
+            <h3 id="dayModalTitle">Workout Session</h3>
+            <span id="dayModalTodayBadge" class="badge badge-emerald hidden">Today</span>
+          </div>
+          <p id="dayModalSubtitle" class="panel-subtitle">0 exercises logged</p>
+        </div>
+        <button type="button" id="closeDayModalBtn" class="icon-btn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <div class="modal-toolbar">
+        <button type="button" id="toggleDayAddFormBtn" class="btn btn-primary btn-sm">
+          + Add Entry to This Day
+        </button>
+      </div>
+
+      <form id="dayInlineForm" class="inline-add-box hidden">
+        <div class="inline-add-grid">
+          <div class="form-group">
+            <label for="inlineExercise">Exercise</label>
+            <input type="text" id="inlineExercise" list="exerciseList" placeholder="Exercise name" required />
+          </div>
+          <div class="form-group">
+            <label for="inlineWeight">Weight</label>
+            <div class="input-addon">
+              <input type="number" id="inlineWeight" step="0.5" min="0" placeholder="60" required />
+              <select id="inlineUnit">
+                <option value="kg">kg</option>
+                <option value="lbs">lbs</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inlineReps">Reps</label>
+            <input type="number" id="inlineReps" min="1" step="1" placeholder="10" required />
+          </div>
+          <div class="form-group">
+            <label for="inlineRemarks">Remarks</label>
+            <input type="text" id="inlineRemarks" placeholder="Optional notes" />
+          </div>
+        </div>
+        <div class="inline-add-actions">
+          <button type="button" id="cancelInlineAddBtn" class="btn btn-ghost btn-sm">Cancel</button>
+          <button type="submit" id="saveInlineAddBtn" class="btn btn-primary btn-sm">Save Entry</button>
+        </div>
+      </form>
+
+      <div id="dayEntriesList" class="day-entries-list"></div>
+    </div>
+  </div>
+
+  <!-- ================= EDIT ENTRY MODAL ================= -->
+  <div id="editModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Exercise Log</h3>
+        <button type="button" id="closeEditModalBtn" class="icon-btn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <form id="editForm" class="stack-form">
+        <input type="hidden" id="editEntryId" />
+        <div class="form-group">
+          <label for="editDate">Date</label>
+          <input type="date" id="editDate" required />
+        </div>
+        <div class="form-group">
+          <label for="editExercise">Exercise</label>
+          <input type="text" id="editExercise" list="exerciseList" required />
+        </div>
+        <div class="two-col">
+          <div class="form-group">
+            <label for="editWeight">Weight</label>
+            <div class="input-addon">
+              <input type="number" id="editWeight" step="0.5" min="0" required />
+              <select id="editUnit">
+                <option value="kg">kg</option>
+                <option value="lbs">lbs</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="editReps">Reps</label>
+            <input type="number" id="editReps" min="1" step="1" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="editRemarks">Remarks</label>
+          <input type="text" id="editRemarks" placeholder="Notes..." />
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="cancelEditBtn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" id="saveEditBtn" class="btn btn-primary">Update Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= DELETE CONFIRMATION MODAL ================= -->
+  <div id="deleteModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3>Delete Exercise Log?</h3>
+        <button type="button" id="closeDeleteModalBtn" class="icon-btn" aria-label="Close modal">&times;</button>
+      </div>
+      <p id="deleteConfirmText" class="modal-body-text">Are you sure you want to remove this entry?</p>
+      <div class="modal-footer">
+        <button type="button" id="cancelDeleteBtn" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- MAIN APPLICATION SCRIPT -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
