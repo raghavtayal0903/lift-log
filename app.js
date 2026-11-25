@@ -20,15 +20,15 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// 1. Replace these values with your Firebase Project Config from console.firebase.google.com
+// Replace these values with your Firebase Project Config
 const firebaseConfig = {
   apiKey: "AIzaSyDV-CClphwzSHWaEz57TjUUM292TWImgjU",
   authDomain: "liftlog-7a3cd.firebaseapp.com",
   projectId: "liftlog-7a3cd",
   storageBucket: "liftlog-7a3cd.firebasestorage.app",
   messagingSenderId: "848127500417",
-  appId: "1:848127500417:web:dd9eb0c8696cfcabd66d80",
-  measurementId: "G-BWWY403WM6"
+  appId: "1:848127500417:web:782e1aa0957708cbd66d80",
+  measurementId: "G-2W44N57RNJ",
 };
 
 const app = initializeApp(firebaseConfig);
@@ -61,12 +61,12 @@ const exportCsvBtn = document.getElementById("exportCsvBtn");
 
 const entryDate = document.getElementById("entryDate");
 const entryExercise = document.getElementById("entryExercise");
-const entryWeight = document.getElementById("entryWeight");
 const entryUnit = document.getElementById("entryUnit");
-const entryReps = document.getElementById("entryReps");
 const entryRemarks = document.getElementById("entryRemarks");
 const logForm = document.getElementById("logForm");
 const saveEntryBtn = document.getElementById("saveEntryBtn");
+const addMainSetBtn = document.getElementById("addMainSetBtn");
+const mainSetsContainer = document.getElementById("mainSetsContainer");
 
 const searchInput = document.getElementById("searchInput");
 const filterDateInput = document.getElementById("filterDateInput");
@@ -77,7 +77,6 @@ const daysGrid = document.getElementById("daysGrid");
 
 const statWorkoutDays = document.getElementById("statWorkoutDays");
 const statTotalLogs = document.getElementById("statTotalLogs");
-const statTotalVolume = document.getElementById("statTotalVolume");
 const statThisWeek = document.getElementById("statThisWeek");
 
 // Day Modal Elements
@@ -89,10 +88,10 @@ const closeDayModalBtn = document.getElementById("closeDayModalBtn");
 const toggleDayAddFormBtn = document.getElementById("toggleDayAddFormBtn");
 const dayInlineForm = document.getElementById("dayInlineForm");
 const inlineExercise = document.getElementById("inlineExercise");
-const inlineWeight = document.getElementById("inlineWeight");
 const inlineUnit = document.getElementById("inlineUnit");
-const inlineReps = document.getElementById("inlineReps");
 const inlineRemarks = document.getElementById("inlineRemarks");
+const addInlineSetBtn = document.getElementById("addInlineSetBtn");
+const inlineSetsContainer = document.getElementById("inlineSetsContainer");
 const cancelInlineAddBtn = document.getElementById("cancelInlineAddBtn");
 const saveInlineAddBtn = document.getElementById("saveInlineAddBtn");
 const dayEntriesList = document.getElementById("dayEntriesList");
@@ -103,10 +102,10 @@ const editForm = document.getElementById("editForm");
 const editEntryId = document.getElementById("editEntryId");
 const editDate = document.getElementById("editDate");
 const editExercise = document.getElementById("editExercise");
-const editWeight = document.getElementById("editWeight");
 const editUnit = document.getElementById("editUnit");
-const editReps = document.getElementById("editReps");
 const editRemarks = document.getElementById("editRemarks");
+const addEditSetBtn = document.getElementById("addEditSetBtn");
+const editSetsContainer = document.getElementById("editSetsContainer");
 const closeEditModalBtn = document.getElementById("closeEditModalBtn");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const saveEditBtn = document.getElementById("saveEditBtn");
@@ -160,7 +159,109 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+// Normalize legacy single-set records or multi-set records into a sets array
+function normalizeSets(entry) {
+  if (Array.isArray(entry.sets) && entry.sets.length > 0) {
+    return entry.sets.map((s, idx) => ({
+      setNumber: s.setNumber ?? idx + 1,
+      weight: Number(s.weight) || 0,
+      reps: parseInt(s.reps, 10) || 0
+    }));
+  }
+  if (entry.weight !== undefined || entry.reps !== undefined) {
+    return [
+      {
+        setNumber: 1,
+        weight: Number(entry.weight) || 0,
+        reps: parseInt(entry.reps, 10) || 0
+      }
+    ];
+  }
+  return [{ setNumber: 1, weight: 0, reps: 0 }];
+}
+
+// Dynamic Set Builder Helpers (To-Do style per exercise)
+function renumberSetRows(container) {
+  const rows = [...container.querySelectorAll(".set-row")];
+  rows.forEach((row, idx) => {
+    const labelEl = row.querySelector(".set-label");
+    if (labelEl) labelEl.textContent = `Set ${idx + 1}`;
+    const removeBtn = row.querySelector(".remove-set-btn");
+    if (removeBtn) removeBtn.disabled = rows.length === 1;
+  });
+}
+
+function createSetRow(container, weight = "", reps = "") {
+  const row = document.createElement("div");
+  row.className = "set-row";
+  row.innerHTML = `
+    <span class="set-label">Set 1</span>
+    <input
+      type="number"
+      class="set-weight"
+      step="any"
+      min="0"
+      placeholder="Weight"
+      value="${escapeHtml(weight)}"
+      required
+    />
+    <input
+      type="number"
+      class="set-reps"
+      min="1"
+      placeholder="Reps"
+      value="${escapeHtml(reps)}"
+      required
+    />
+    <button
+      type="button"
+      class="btn btn-danger btn-sm remove-set-btn"
+      title="Remove set"
+      aria-label="Remove set"
+    >✕</button>
+  `;
+
+  row.querySelector(".remove-set-btn").addEventListener("click", () => {
+    row.remove();
+    renumberSetRows(container);
+  });
+
+  container.appendChild(row);
+  renumberSetRows(container);
+}
+
+function resetSetContainer(container, initialSets = null) {
+  container.innerHTML = "";
+  if (Array.isArray(initialSets) && initialSets.length > 0) {
+    initialSets.forEach((s) => createSetRow(container, s.weight ?? "", s.reps ?? ""));
+  } else {
+    createSetRow(container, "", "");
+  }
+}
+
+function readSetsFromContainer(container) {
+  const rows = [...container.querySelectorAll(".set-row")];
+  return rows.map((row, idx) => ({
+    setNumber: idx + 1,
+    weight: parseFloat(row.querySelector(".set-weight").value) || 0,
+    reps: parseInt(row.querySelector(".set-reps").value, 10) || 0
+  }));
+}
+
+function attachAddSetButton(btn, container) {
+  btn.addEventListener("click", () => {
+    const lastWeightInput = container.querySelector(".set-row:last-child .set-weight");
+    const carryWeight = lastWeightInput && lastWeightInput.value !== "" ? lastWeightInput.value : "";
+    createSetRow(container, carryWeight, "");
+  });
+}
+
+attachAddSetButton(addMainSetBtn, mainSetsContainer);
+attachAddSetButton(addInlineSetBtn, inlineSetsContainer);
+attachAddSetButton(addEditSetBtn, editSetsContainer);
+
 entryDate.value = getTodayISO();
+resetSetContainer(mainSetsContainer);
 
 // Auth Tabs
 tabSignIn.addEventListener("click", () => {
@@ -287,30 +388,30 @@ document.getElementById("quickChips").addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
   entryExercise.value = chip.dataset.ex;
-  entryWeight.focus();
+  const firstWeight = mainSetsContainer.querySelector(".set-weight");
+  if (firstWeight) firstWeight.focus();
 });
 
-// Add Exercise Entry
+// Add Exercise Entry with Multi-Sets
 logForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!currentUser) return;
 
   saveEntryBtn.disabled = true;
   try {
+    const sets = readSetsFromContainer(mainSetsContainer);
     await addDoc(getUserLogsRef(currentUser.uid), {
       date: entryDate.value,
       exercise: entryExercise.value.trim(),
-      weight: parseFloat(entryWeight.value) || 0,
       unit: entryUnit.value,
-      reps: parseInt(entryReps.value, 10) || 0,
+      sets,
       remarks: entryRemarks.value.trim(),
       createdAt: serverTimestamp()
     });
 
     entryExercise.value = "";
-    entryWeight.value = "";
-    entryReps.value = "";
     entryRemarks.value = "";
+    resetSetContainer(mainSetsContainer);
     showToast("Exercise added to workout log!");
   } catch (err) {
     showToast("Failed to save: " + err.message);
@@ -319,17 +420,11 @@ logForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Summary Statistics
+// Summary Statistics (Total Volume removed)
 function updateStats() {
   const uniqueDays = new Set(allLogs.map((item) => item.date).filter(Boolean));
   statWorkoutDays.textContent = uniqueDays.size;
   statTotalLogs.textContent = allLogs.length;
-
-  let volume = 0;
-  allLogs.forEach((item) => {
-    volume += (Number(item.weight) || 0) * (Number(item.reps) || 0);
-  });
-  statTotalVolume.textContent = volume.toLocaleString();
 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -382,9 +477,14 @@ function renderDaysGrid() {
   sortedDates.forEach((dateKey) => {
     const entries = groupsMap.get(dateKey);
     const isToday = dateKey === todayISO;
-    const totalReps = entries.reduce((sum, e) => sum + (Number(e.reps) || 0), 0);
-    const totalVol = entries.reduce(
-      (sum, e) => sum + (Number(e.weight) || 0) * (Number(e.reps) || 0),
+
+    const totalSetsCount = entries.reduce(
+      (sum, e) => sum + normalizeSets(e).length,
+      0
+    );
+    const totalReps = entries.reduce(
+      (sum, e) =>
+        sum + normalizeSets(e).reduce((sSum, s) => sSum + (Number(s.reps) || 0), 0),
       0
     );
 
@@ -393,10 +493,12 @@ function renderDaysGrid() {
 
     const pillsHtml =
       previewItems
-        .map(
-          (e) =>
-            `<span class="exercise-pill">${escapeHtml(e.exercise)} • ${e.weight}${escapeHtml(e.unit || "kg")} × ${e.reps}</span>`
-        )
+        .map((e) => {
+          const sets = normalizeSets(e);
+          const unit = escapeHtml(e.unit || "kg");
+          const setsSummary = sets.map((s) => `${s.weight}${unit}×${s.reps}`).join(", ");
+          return `<span class="exercise-pill">${escapeHtml(e.exercise)} • ${setsSummary}</span>`;
+        })
         .join("") +
       (extraCount > 0 ? `<span class="exercise-pill">+${extraCount} more</span>` : "");
 
@@ -420,7 +522,7 @@ function renderDaysGrid() {
         </div>
       </div>
       <div class="day-card-footer">
-        <span>${totalReps} reps • ${totalVol.toLocaleString()} vol</span>
+        <span>${totalSetsCount} ${totalSetsCount === 1 ? "set" : "sets"} &bull; ${totalReps} reps</span>
         <span class="day-card-cta">Open day &rarr;</span>
       </div>
     `;
@@ -443,6 +545,7 @@ function openDayModal(dateKey) {
   activeModalDate = dateKey;
   dayInlineForm.classList.add("hidden");
   dayInlineForm.reset();
+  resetSetContainer(inlineSetsContainer);
   renderDayModalContent(dateKey);
   dayModal.classList.remove("hidden");
 }
@@ -462,11 +565,8 @@ function renderDayModalContent(dateKey) {
     dayModalTodayBadge.classList.add("hidden");
   }
 
-  const totalVol = dayEntries.reduce(
-    (sum, e) => sum + (Number(e.weight) || 0) * (Number(e.reps) || 0),
-    0
-  );
-  dayModalSubtitle.textContent = `${dayEntries.length} ${dayEntries.length === 1 ? "exercise" : "exercises"} logged • Total volume: ${totalVol.toLocaleString()}`;
+  const totalSetsCount = dayEntries.reduce((sum, e) => sum + normalizeSets(e).length, 0);
+  dayModalSubtitle.textContent = `${dayEntries.length} ${dayEntries.length === 1 ? "exercise" : "exercises"} &bull; ${totalSetsCount} ${totalSetsCount === 1 ? "set" : "sets"}`;
 
   if (dayEntries.length === 0) {
     dayEntriesList.innerHTML = `<div class="empty-state">No entries remaining for this day.</div>`;
@@ -474,25 +574,30 @@ function renderDayModalContent(dateKey) {
   }
 
   dayEntriesList.innerHTML = dayEntries
-    .map(
-      (entry) => `
-      <div class="entry-row">
-        <div class="entry-row-main">
-          <h4>${escapeHtml(entry.exercise)}</h4>
-          <div class="entry-metrics">
-            <span>Weight: ${entry.weight} ${escapeHtml(entry.unit || "kg")}</span>
-            <span>&bull;</span>
-            <span>Reps: ${entry.reps}</span>
+    .map((entry) => {
+      const sets = normalizeSets(entry);
+      const unit = escapeHtml(entry.unit || "kg");
+      const setsMarkup = sets
+        .map(
+          (s, i) =>
+            `<span class="exercise-pill">Set ${s.setNumber ?? i + 1}: ${s.weight} ${unit} &times; ${s.reps} reps</span>`
+        )
+        .join(" ");
+
+      return `
+        <div class="entry-row">
+          <div class="entry-row-main">
+            <h4>${escapeHtml(entry.exercise)}</h4>
+            <div class="entry-metrics day-pills">${setsMarkup}</div>
+            ${entry.remarks ? `<p class="entry-remarks">${escapeHtml(entry.remarks)}</p>` : ""}
           </div>
-          ${entry.remarks ? `<p class="entry-remarks">${escapeHtml(entry.remarks)}</p>` : ""}
+          <div class="entry-row-actions">
+            <button type="button" class="btn btn-secondary btn-sm" data-action="edit" data-id="${entry.id}">Edit</button>
+            <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${entry.id}">Delete</button>
+          </div>
         </div>
-        <div class="entry-row-actions">
-          <button type="button" class="btn btn-secondary btn-sm" data-action="edit" data-id="${entry.id}">Edit</button>
-          <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${entry.id}">Delete</button>
-        </div>
-      </div>
-    `
-    )
+      `;
+    })
     .join("");
 }
 
@@ -504,6 +609,7 @@ dayModal.addEventListener("click", (e) => {
 toggleDayAddFormBtn.addEventListener("click", () => {
   dayInlineForm.classList.toggle("hidden");
   if (!dayInlineForm.classList.contains("hidden")) {
+    resetSetContainer(inlineSetsContainer);
     inlineExercise.focus();
   }
 });
@@ -511,6 +617,7 @@ toggleDayAddFormBtn.addEventListener("click", () => {
 cancelInlineAddBtn.addEventListener("click", () => {
   dayInlineForm.classList.add("hidden");
   dayInlineForm.reset();
+  resetSetContainer(inlineSetsContainer);
 });
 
 dayInlineForm.addEventListener("submit", async (e) => {
@@ -519,16 +626,17 @@ dayInlineForm.addEventListener("submit", async (e) => {
 
   saveInlineAddBtn.disabled = true;
   try {
+    const sets = readSetsFromContainer(inlineSetsContainer);
     await addDoc(getUserLogsRef(currentUser.uid), {
       date: activeModalDate,
       exercise: inlineExercise.value.trim(),
-      weight: parseFloat(inlineWeight.value) || 0,
       unit: inlineUnit.value,
-      reps: parseInt(inlineReps.value, 10) || 0,
+      sets,
       remarks: inlineRemarks.value.trim(),
       createdAt: serverTimestamp()
     });
     dayInlineForm.reset();
+    resetSetContainer(inlineSetsContainer);
     dayInlineForm.classList.add("hidden");
     showToast("Added exercise to session!");
   } catch (err) {
@@ -557,10 +665,9 @@ function openEditModal(entry) {
   editEntryId.value = entry.id;
   editDate.value = entry.date || getTodayISO();
   editExercise.value = entry.exercise || "";
-  editWeight.value = entry.weight ?? 0;
   editUnit.value = entry.unit || "kg";
-  editReps.value = entry.reps ?? 1;
   editRemarks.value = entry.remarks || "";
+  resetSetContainer(editSetsContainer, normalizeSets(entry));
   editModal.classList.remove("hidden");
 }
 
@@ -580,13 +687,13 @@ editForm.addEventListener("submit", async (e) => {
 
   saveEditBtn.disabled = true;
   try {
+    const sets = readSetsFromContainer(editSetsContainer);
     const docRef = doc(db, "users", currentUser.uid, "workouts", editEntryId.value);
     await updateDoc(docRef, {
       date: editDate.value,
       exercise: editExercise.value.trim(),
-      weight: parseFloat(editWeight.value) || 0,
       unit: editUnit.value,
-      reps: parseInt(editReps.value, 10) || 0,
+      sets,
       remarks: editRemarks.value.trim()
     });
     closeEditModal();
@@ -601,7 +708,8 @@ editForm.addEventListener("submit", async (e) => {
 // ================= DELETE MODAL =================
 function openDeleteModal(entry) {
   pendingDeleteId = entry.id;
-  deleteConfirmText.textContent = `Delete "${entry.exercise}" (${entry.weight}${entry.unit || "kg"} × ${entry.reps} reps)?`;
+  const sets = normalizeSets(entry);
+  deleteConfirmText.textContent = `Delete "${entry.exercise}" (${sets.length} ${sets.length === 1 ? "set" : "sets"})?`;
   deleteModal.classList.remove("hidden");
 }
 
@@ -638,15 +746,23 @@ exportCsvBtn.addEventListener("click", () => {
     return;
   }
 
-  const headers = ["Date", "Exercise", "Weight", "Unit", "Reps", "Remarks"];
-  const rows = allLogs.map((item) => [
-    item.date || "",
-    `"${(item.exercise || "").replace(/"/g, '""')}"`,
-    item.weight ?? 0,
-    item.unit || "kg",
-    item.reps ?? 0,
-    `"${(item.remarks || "").replace(/"/g, '""')}"`
-  ]);
+  const headers = ["Date", "Exercise", "Set", "Weight", "Unit", "Reps", "Remarks"];
+  const rows = [];
+
+  allLogs.forEach((item) => {
+    const sets = normalizeSets(item);
+    sets.forEach((s, idx) => {
+      rows.push([
+        item.date || "",
+        `"${(item.exercise || "").replace(/"/g, '""')}"`,
+        s.setNumber ?? idx + 1,
+        s.weight ?? 0,
+        item.unit || "kg",
+        s.reps ?? 0,
+        `"${(item.remarks || "").replace(/"/g, '""')}"`
+      ]);
+    });
+  });
 
   const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
