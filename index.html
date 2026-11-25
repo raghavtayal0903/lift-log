@@ -3,147 +3,165 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LiftLog — Personal Workout Tracker</title>
+  <title>LiftLog</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- AUTH VIEW -->
-  <div id="authView" class="auth-wrapper">
-    <div class="auth-card">
-      <div class="auth-header">
-        <div class="brand-badge">LiftLog</div>
-        <h1>Track sets, weight, and reps</h1>
-        <p>Sign in to keep your workout logs private and synced to the cloud.</p>
-      </div>
+  <!-- Auth View -->
+  <main id="authSection" class="auth-container">
+    <div class="card auth-card">
+      <h1 class="brand-title">LiftLog</h1>
+      <p class="subtitle">Sign in to keep your workout logs private and synced.</p>
 
-      <div class="auth-tabs" role="tablist">
-        <button type="button" class="auth-tab active" data-mode="signin">Sign In</button>
-        <button type="button" class="auth-tab" data-mode="signup">Create Account</button>
-      </div>
-
-      <form id="authForm" class="auth-form">
-        <label class="field">
-          <span>Email Address</span>
+      <form id="authForm" class="stack">
+        <div class="field">
+          <label for="authEmail">Email</label>
           <input type="email" id="authEmail" placeholder="you@example.com" required />
-        </label>
+        </div>
 
-        <label class="field">
-          <span>Password</span>
-          <input type="password" id="authPassword" placeholder="At least 6 characters" minlength="6" required />
-        </label>
+        <div class="field">
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" placeholder="••••••••" minlength="6" required />
+        </div>
 
-        <button type="submit" id="authSubmitBtn" class="btn btn-primary full-width">Sign In</button>
+        <p id="authError" class="error-text hidden"></p>
+
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary">Sign In</button>
       </form>
 
-      <div class="auth-divider"><span>or</span></div>
+      <div class="divider"><span>or</span></div>
 
-      <div class="auth-alt-actions">
-        <button type="button" id="googleSignInBtn" class="btn btn-secondary full-width">
-          Continue with Google
-        </button>
-        <button type="button" id="anonSignInBtn" class="btn btn-ghost full-width">
-          Continue as Guest
-        </button>
+      <button type="button" id="googleSignInBtn" class="btn btn-secondary">
+        Continue with Google
+      </button>
+
+      <p class="auth-switch">
+        <span id="authModePrompt">Don't have an account?</span>
+        <button type="button" id="toggleAuthModeBtn" class="link-btn">Create Account</button>
+      </p>
+    </div>
+  </main>
+
+  <!-- Main App View -->
+  <div id="appSection" class="app-container hidden">
+    <header class="app-header">
+      <div>
+        <h1 class="brand-title">LiftLog</h1>
+        <p id="userEmailDisplay" class="user-email"></p>
       </div>
+      <button type="button" id="signOutBtn" class="btn btn-outline">Sign Out</button>
+    </header>
 
-      <p id="authError" class="error-text hidden" role="alert"></p>
+    <!-- Log Exercise Form -->
+    <section class="card">
+      <h2>Log Exercise</h2>
+      <form id="workoutForm" class="stack">
+        <div class="grid-2">
+          <div class="field">
+            <label for="workoutDate">Date</label>
+            <input type="date" id="workoutDate" required />
+          </div>
+          <div class="field">
+            <label for="exerciseName">Exercise</label>
+            <input type="text" id="exerciseName" placeholder="e.g., Bench Press" required />
+          </div>
+        </div>
+
+        <div class="sets-section">
+          <div class="sets-header">
+            <label>Sets</label>
+            <button type="button" id="addMainSetBtn" class="btn btn-small btn-secondary">+ Add Set</button>
+          </div>
+          <div id="mainSetsContainer" class="sets-list"></div>
+        </div>
+
+        <div class="field">
+          <label for="workoutNotes">Notes (optional)</label>
+          <input type="text" id="workoutNotes" placeholder="e.g., Felt strong, slow eccentric" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Exercise</button>
+      </form>
+    </section>
+
+    <!-- Workout History Grouped by Day -->
+    <section class="history-section">
+      <h2>Workout History</h2>
+      <div id="emptyState" class="card empty-state hidden">
+        No workouts logged yet. Add your first exercise above.
+      </div>
+      <div id="workoutsList" class="days-list"></div>
+    </section>
+  </div>
+
+  <!-- Inline Add Exercise to Existing Day Modal -->
+  <div id="inlineAddModal" class="modal hidden">
+    <div class="card modal-card">
+      <div class="modal-header">
+        <h2>Add Exercise — <span id="inlineDateDisplay"></span></h2>
+        <button type="button" id="closeInlineModalBtn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="inlineAddForm" class="stack">
+        <input type="hidden" id="inlineDateInput" />
+        <div class="field">
+          <label for="inlineExerciseName">Exercise</label>
+          <input type="text" id="inlineExerciseName" placeholder="e.g., Incline Dumbbell Press" required />
+        </div>
+
+        <div class="sets-section">
+          <div class="sets-header">
+            <label>Sets</label>
+            <button type="button" id="addInlineSetBtn" class="btn btn-small btn-secondary">+ Add Set</button>
+          </div>
+          <div id="inlineSetsContainer" class="sets-list"></div>
+        </div>
+
+        <div class="field">
+          <label for="inlineNotes">Notes (optional)</label>
+          <input type="text" id="inlineNotes" placeholder="Optional notes" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add to Day</button>
+      </form>
     </div>
   </div>
 
-  <!-- APP VIEW -->
-  <div id="appView" class="app-wrapper hidden">
-    <header class="topbar">
-      <div class="container topbar-inner">
-        <div class="brand">
-          <span class="brand-badge">LiftLog</span>
-          <span class="brand-sub">Workout Tracker</span>
-        </div>
-
-        <div class="user-controls">
-          <span id="userEmailDisplay" class="user-email"></span>
-          <button type="button" id="signOutBtn" class="btn btn-secondary btn-sm">Sign Out</button>
-        </div>
+  <!-- Edit Exercise Modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="card modal-card">
+      <div class="modal-header">
+        <h2>Edit Exercise</h2>
+        <button type="button" id="closeEditModalBtn" class="icon-btn" aria-label="Close">&times;</button>
       </div>
-    </header>
-
-    <main class="container main-content">
-      <!-- LOG NEW EXERCISE FORM -->
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Log Daily Exercise</h2>
-          <span class="panel-subtitle">Entries for the same date automatically group into one Day Card</span>
-        </div>
-
-        <div class="quick-chips" id="quickChips">
-          <span class="chip-label">Quick pick:</span>
-          <button type="button" class="chip" data-ex="Bench Press">Bench Press</button>
-          <button type="button" class="chip" data-ex="Squat">Squat</button>
-          <button type="button" class="chip" data-ex="Deadlift">Deadlift</button>
-          <button type="button" class="chip" data-ex="Overhead Press">Overhead Press</button>
-          <button type="button" class="chip" data-ex="Barbell Row">Barbell Row</button>
-          <button type="button" class="chip" data-ex="Pull-Ups">Pull-Ups</button>
-          <button type="button" class="chip" data-ex="Lat Pulldown">Lat Pulldown</button>
-        </div>
-
-        <form id="exerciseForm" class="exercise-form">
-          <div class="form-row-top">
-            <label class="field">
-              <span>Exercise Name</span>
-              <input
-                type="text"
-                id="exerciseName"
-                placeholder="e.g., Bench Press"
-                required
-              />
-            </label>
-
-            <label class="field">
-              <span>Workout Date</span>
-              <input type="date" id="workoutDate" required />
-            </label>
+      <form id="editForm" class="stack">
+        <input type="hidden" id="editWorkoutId" />
+        <div class="grid-2">
+          <div class="field">
+            <label for="editDate">Date</label>
+            <input type="date" id="editDate" required />
           </div>
-
-          <div class="sets-section">
-            <div class="sets-header">
-              <div>
-                <h3>Sets</h3>
-                <p class="sets-hint">Add or remove sets like a to-do list with custom weight and reps per set</p>
-              </div>
-              <button type="button" id="addSetBtn" class="btn btn-secondary btn-sm">+ Add Set</button>
-            </div>
-
-            <div id="setsContainer" class="sets-container"></div>
+          <div class="field">
+            <label for="editExerciseName">Exercise</label>
+            <input type="text" id="editExerciseName" required />
           </div>
-
-          <label class="field">
-            <span>Notes (optional)</span>
-            <input
-              type="text"
-              id="exerciseNotes"
-              placeholder="e.g., Felt strong, 90s rest between sets"
-            />
-          </label>
-
-          <p id="formError" class="error-text hidden" role="alert"></p>
-
-          <div class="form-actions">
-            <button type="submit" id="saveExerciseBtn" class="btn btn-primary">Save Exercise Log</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- WORKOUT HISTORY (GROUPED BY DATE) -->
-      <section class="history-section">
-        <div class="history-header">
-          <h2>Workout History</h2>
-          <span id="logCountLabel" class="muted-text">0 sessions</span>
         </div>
 
-        <div id="workoutHistory" class="workout-history">
-          <div class="empty-state">Loading your workout logs...</div>
+        <div class="sets-section">
+          <div class="sets-header">
+            <label>Sets</label>
+            <button type="button" id="addEditSetBtn" class="btn btn-small btn-secondary">+ Add Set</button>
+          </div>
+          <div id="editSetsContainer" class="sets-list"></div>
         </div>
-      </section>
-    </main>
+
+        <div class="field">
+          <label for="editNotes">Notes (optional)</label>
+          <input type="text" id="editNotes" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </form>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>

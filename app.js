@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -6,9 +6,8 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  signInAnonymously,
-  signOut
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore,
   collection,
@@ -17,10 +16,11 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  query,
+  orderBy,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Replace these values with your Firebase Project Config
 const firebaseConfig = {
   apiKey: "AIzaSyDV-CClphwzSHWaEz57TjUUM292TWImgjU",
   authDomain: "liftlog-7a3cd.firebaseapp.com",
@@ -34,743 +34,385 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// Application State
-let currentUser = null;
-let allLogs = [];
-let unsubscribeLogs = null;
-let authMode = "signin";
-let activeModalDate = null;
-let pendingDeleteId = null;
+const googleProvider = new GoogleAuthProvider();
 
 // DOM Elements
-const authView = document.getElementById("authView");
-const appView = document.getElementById("appView");
-const tabSignIn = document.getElementById("tabSignIn");
-const tabSignUp = document.getElementById("tabSignUp");
+const authSection = document.getElementById("authSection");
+const appSection = document.getElementById("appSection");
 const authForm = document.getElementById("authForm");
 const authEmail = document.getElementById("authEmail");
 const authPassword = document.getElementById("authPassword");
 const authSubmitBtn = document.getElementById("authSubmitBtn");
-const authError = document.getElementById("authError");
+const toggleAuthModeBtn = document.getElementById("toggleAuthModeBtn");
+const authModePrompt = document.getElementById("authModePrompt");
 const googleSignInBtn = document.getElementById("googleSignInBtn");
-const guestSignInBtn = document.getElementById("guestSignInBtn");
+const authError = document.getElementById("authError");
+
+const userEmailDisplay = document.getElementById("userEmailDisplay");
 const signOutBtn = document.getElementById("signOutBtn");
-const userBadge = document.getElementById("userBadge");
-const exportCsvBtn = document.getElementById("exportCsvBtn");
 
-const entryDate = document.getElementById("entryDate");
-const entryExercise = document.getElementById("entryExercise");
-const entryUnit = document.getElementById("entryUnit");
-const entryRemarks = document.getElementById("entryRemarks");
-const logForm = document.getElementById("logForm");
-const saveEntryBtn = document.getElementById("saveEntryBtn");
-const addMainSetBtn = document.getElementById("addMainSetBtn");
+const workoutForm = document.getElementById("workoutForm");
+const workoutDate = document.getElementById("workoutDate");
+const exerciseName = document.getElementById("exerciseName");
 const mainSetsContainer = document.getElementById("mainSetsContainer");
+const addMainSetBtn = document.getElementById("addMainSetBtn");
+const workoutNotes = document.getElementById("workoutNotes");
 
-const searchInput = document.getElementById("searchInput");
-const filterDateInput = document.getElementById("filterDateInput");
-const clearFiltersBtn = document.getElementById("clearFiltersBtn");
-const loadingState = document.getElementById("loadingState");
+const workoutsList = document.getElementById("workoutsList");
 const emptyState = document.getElementById("emptyState");
-const daysGrid = document.getElementById("daysGrid");
 
-const statWorkoutDays = document.getElementById("statWorkoutDays");
-const statTotalLogs = document.getElementById("statTotalLogs");
-const statThisWeek = document.getElementById("statThisWeek");
-
-// Day Modal Elements
-const dayModal = document.getElementById("dayModal");
-const dayModalTitle = document.getElementById("dayModalTitle");
-const dayModalTodayBadge = document.getElementById("dayModalTodayBadge");
-const dayModalSubtitle = document.getElementById("dayModalSubtitle");
-const closeDayModalBtn = document.getElementById("closeDayModalBtn");
-const toggleDayAddFormBtn = document.getElementById("toggleDayAddFormBtn");
-const dayInlineForm = document.getElementById("dayInlineForm");
-const inlineExercise = document.getElementById("inlineExercise");
-const inlineUnit = document.getElementById("inlineUnit");
-const inlineRemarks = document.getElementById("inlineRemarks");
-const addInlineSetBtn = document.getElementById("addInlineSetBtn");
+const inlineAddModal = document.getElementById("inlineAddModal");
+const inlineAddForm = document.getElementById("inlineAddForm");
+const inlineDateDisplay = document.getElementById("inlineDateDisplay");
+const inlineDateInput = document.getElementById("inlineDateInput");
+const inlineExerciseName = document.getElementById("inlineExerciseName");
 const inlineSetsContainer = document.getElementById("inlineSetsContainer");
-const cancelInlineAddBtn = document.getElementById("cancelInlineAddBtn");
-const saveInlineAddBtn = document.getElementById("saveInlineAddBtn");
-const dayEntriesList = document.getElementById("dayEntriesList");
+const addInlineSetBtn = document.getElementById("addInlineSetBtn");
+const inlineNotes = document.getElementById("inlineNotes");
+const closeInlineModalBtn = document.getElementById("closeInlineModalBtn");
 
-// Edit & Delete Modal Elements
 const editModal = document.getElementById("editModal");
 const editForm = document.getElementById("editForm");
-const editEntryId = document.getElementById("editEntryId");
+const editWorkoutId = document.getElementById("editWorkoutId");
 const editDate = document.getElementById("editDate");
-const editExercise = document.getElementById("editExercise");
-const editUnit = document.getElementById("editUnit");
-const editRemarks = document.getElementById("editRemarks");
-const addEditSetBtn = document.getElementById("addEditSetBtn");
+const editExerciseName = document.getElementById("editExerciseName");
 const editSetsContainer = document.getElementById("editSetsContainer");
+const addEditSetBtn = document.getElementById("addEditSetBtn");
+const editNotes = document.getElementById("editNotes");
 const closeEditModalBtn = document.getElementById("closeEditModalBtn");
-const cancelEditBtn = document.getElementById("cancelEditBtn");
-const saveEditBtn = document.getElementById("saveEditBtn");
 
-const deleteModal = document.getElementById("deleteModal");
-const deleteConfirmText = document.getElementById("deleteConfirmText");
-const closeDeleteModalBtn = document.getElementById("closeDeleteModalBtn");
-const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
-const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
-const toastEl = document.getElementById("toast");
+// App State
+let isSignUpMode = false;
+let currentUser = null;
+let unsubscribeWorkouts = null;
+let allWorkouts = [];
 
 // Helpers
 function getTodayISO() {
   const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().split("T")[0];
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60000);
+  return local.toISOString().split("T")[0];
 }
 
-function formatDisplayDate(isoDate) {
-  if (!isoDate) return "Unknown Date";
-  const [y, m, d] = isoDate.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString("en-US", {
+function formatDateHeading(isoDate) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const dateObj = new Date(year, month - 1, day);
+  return dateObj.toLocaleDateString(undefined, {
+    weekday: "short",
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   });
 }
 
-function formatWeekday(isoDate) {
-  if (!isoDate) return "";
-  const [y, m, d] = isoDate.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString("en-US", { weekday: "long" });
+function showAuthError(message) {
+  authError.textContent = message;
+  authError.classList.remove("hidden");
 }
 
-function showToast(message) {
-  toastEl.textContent = message;
-  toastEl.classList.remove("hidden");
-  clearTimeout(toastEl._timer);
-  toastEl._timer = setTimeout(() => {
-    toastEl.classList.add("hidden");
-  }, 3000);
+function clearAuthError() {
+  authError.textContent = "";
+  authError.classList.add("hidden");
 }
 
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-// Normalize legacy single-set records or multi-set records into a sets array
-function normalizeSets(entry) {
-  if (Array.isArray(entry.sets) && entry.sets.length > 0) {
-    return entry.sets.map((s, idx) => ({
-      setNumber: s.setNumber ?? idx + 1,
-      weight: Number(s.weight) || 0,
-      reps: parseInt(s.reps, 10) || 0
-    }));
-  }
-  if (entry.weight !== undefined || entry.reps !== undefined) {
-    return [
-      {
-        setNumber: 1,
-        weight: Number(entry.weight) || 0,
-        reps: parseInt(entry.reps, 10) || 0
-      }
-    ];
-  }
-  return [{ setNumber: 1, weight: 0, reps: 0 }];
-}
-
-// Dynamic Set Builder Helpers (To-Do style per exercise)
 function renumberSetRows(container) {
-  const rows = [...container.querySelectorAll(".set-row")];
+  const rows = container.querySelectorAll(".set-row");
   rows.forEach((row, idx) => {
-    const labelEl = row.querySelector(".set-label");
-    if (labelEl) labelEl.textContent = `Set ${idx + 1}`;
-    const removeBtn = row.querySelector(".remove-set-btn");
-    if (removeBtn) removeBtn.disabled = rows.length === 1;
+    const badge = row.querySelector(".set-badge");
+    if (badge) badge.textContent = `Set ${idx + 1}`;
   });
 }
 
 function createSetRow(container, weight = "", reps = "") {
   const row = document.createElement("div");
   row.className = "set-row";
+
   row.innerHTML = `
-    <span class="set-label">Set 1</span>
-    <input
-      type="number"
-      class="set-weight"
-      step="any"
-      min="0"
-      placeholder="Weight"
-      value="${escapeHtml(weight)}"
-      required
-    />
-    <input
-      type="number"
-      class="set-reps"
-      min="1"
-      placeholder="Reps"
-      value="${escapeHtml(reps)}"
-      required
-    />
-    <button
-      type="button"
-      class="btn btn-danger btn-sm remove-set-btn"
-      title="Remove set"
-      aria-label="Remove set"
-    >✕</button>
+    <span class="set-badge">Set</span>
+    <input type="number" step="0.5" min="0" class="set-weight" placeholder="Weight (kg)" value="${weight}" required />
+    <input type="number" step="1" min="1" class="set-reps" placeholder="Reps" value="${reps}" required />
+    <button type="button" class="btn btn-small btn-danger remove-set-btn" aria-label="Remove set">&times;</button>
   `;
 
   row.querySelector(".remove-set-btn").addEventListener("click", () => {
-    row.remove();
-    renumberSetRows(container);
+    if (container.querySelectorAll(".set-row").length > 1) {
+      row.remove();
+      renumberSetRows(container);
+    }
   });
 
   container.appendChild(row);
   renumberSetRows(container);
 }
 
-function resetSetContainer(container, initialSets = null) {
-  container.innerHTML = "";
-  if (Array.isArray(initialSets) && initialSets.length > 0) {
-    initialSets.forEach((s) => createSetRow(container, s.weight ?? "", s.reps ?? ""));
-  } else {
-    createSetRow(container, "", "");
-  }
+function collectSets(container) {
+  const rows = container.querySelectorAll(".set-row");
+  const sets = [];
+  rows.forEach((row) => {
+    const weight = parseFloat(row.querySelector(".set-weight").value);
+    const reps = parseInt(row.querySelector(".set-reps").value, 10);
+    if (!Number.isNaN(weight) && !Number.isNaN(reps) && reps > 0) {
+      sets.push({ weight, reps });
+    }
+  });
+  return sets;
 }
 
-function readSetsFromContainer(container) {
-  const rows = [...container.querySelectorAll(".set-row")];
-  return rows.map((row, idx) => ({
-    setNumber: idx + 1,
-    weight: parseFloat(row.querySelector(".set-weight").value) || 0,
-    reps: parseInt(row.querySelector(".set-reps").value, 10) || 0
-  }));
+function resetSetContainer(container, sets = [{ weight: "", reps: "" }]) {
+  container.innerHTML = "";
+  sets.forEach((s) => createSetRow(container, s.weight, s.reps));
 }
 
 function attachAddSetButton(btn, container) {
-  btn.addEventListener("click", () => {
-    const lastWeightInput = container.querySelector(".set-row:last-child .set-weight");
-    const carryWeight = lastWeightInput && lastWeightInput.value !== "" ? lastWeightInput.value : "";
-    createSetRow(container, carryWeight, "");
-  });
+  if (!btn || !container) return;
+  btn.addEventListener("click", () => createSetRow(container));
 }
 
+// Initialize default date & set rows
+workoutDate.value = getTodayISO();
+resetSetContainer(mainSetsContainer);
 attachAddSetButton(addMainSetBtn, mainSetsContainer);
 attachAddSetButton(addInlineSetBtn, inlineSetsContainer);
 attachAddSetButton(addEditSetBtn, editSetsContainer);
 
-entryDate.value = getTodayISO();
-resetSetContainer(mainSetsContainer);
-
-// Auth Tabs
-tabSignIn.addEventListener("click", () => {
-  authMode = "signin";
-  tabSignIn.classList.add("active");
-  tabSignUp.classList.remove("active");
-  authSubmitBtn.textContent = "Sign In";
-  authError.classList.add("hidden");
-});
-
-tabSignUp.addEventListener("click", () => {
-  authMode = "signup";
-  tabSignUp.classList.add("active");
-  tabSignIn.classList.remove("active");
-  authSubmitBtn.textContent = "Create Account";
-  authError.classList.add("hidden");
+// Auth Events
+toggleAuthModeBtn.addEventListener("click", () => {
+  isSignUpMode = !isSignUpMode;
+  clearAuthError();
+  authSubmitBtn.textContent = isSignUpMode ? "Create Account" : "Sign In";
+  authModePrompt.textContent = isSignUpMode
+    ? "Already have an account?"
+    : "Don't have an account?";
+  toggleAuthModeBtn.textContent = isSignUpMode ? "Sign In" : "Create Account";
 });
 
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  authError.classList.add("hidden");
-  authSubmitBtn.disabled = true;
+  clearAuthError();
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
 
   try {
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-    if (authMode === "signin") {
-      await signInWithEmailAndPassword(auth, email, password);
-    } else {
+    if (isSignUpMode) {
       await createUserWithEmailAndPassword(auth, email, password);
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
     }
+    authForm.reset();
   } catch (err) {
-    authError.textContent = err.message.replace("Firebase: ", "");
-    authError.classList.remove("hidden");
-  } finally {
-    authSubmitBtn.disabled = false;
+    showAuthError(err.message);
   }
 });
 
 googleSignInBtn.addEventListener("click", async () => {
-  authError.classList.add("hidden");
+  clearAuthError();
   try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    await signInWithPopup(auth, googleProvider);
   } catch (err) {
-    authError.textContent = err.message.replace("Firebase: ", "");
-    authError.classList.remove("hidden");
+    showAuthError(err.message);
   }
 });
 
-guestSignInBtn.addEventListener("click", async () => {
-  authError.classList.add("hidden");
-  try {
-    await signInAnonymously(auth);
-  } catch (err) {
-    authError.textContent = err.message.replace("Firebase: ", "");
-    authError.classList.remove("hidden");
-  }
+signOutBtn.addEventListener("click", async () => {
+  await signOut(auth);
 });
 
-signOutBtn.addEventListener("click", () => signOut(auth));
-
-// Auth Observer
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-  if (unsubscribeLogs) {
-    unsubscribeLogs();
-    unsubscribeLogs = null;
-  }
-
-  if (user) {
-    authView.classList.add("hidden");
-    appView.classList.remove("hidden");
-    userBadge.textContent = user.isAnonymous ? "Guest Session" : (user.email || "Athlete");
-    subscribeToWorkouts(user.uid);
-  } else {
-    allLogs = [];
-    appView.classList.add("hidden");
-    authView.classList.remove("hidden");
-  }
-});
-
-// Firestore Collection Reference
-function getUserLogsRef(uid) {
-  return collection(db, "users", uid, "workouts");
+// Firestore Helpers
+function userWorkoutsCol() {
+  return collection(db, "users", currentUser.uid, "workouts");
 }
 
-function subscribeToWorkouts(uid) {
-  loadingState.classList.remove("hidden");
-  emptyState.classList.add("hidden");
-  daysGrid.innerHTML = "";
+function renderWorkouts() {
+  workoutsList.innerHTML = "";
 
-  unsubscribeLogs = onSnapshot(
-    getUserLogsRef(uid),
-    (snapshot) => {
-      loadingState.classList.add("hidden");
-      allLogs = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }));
-
-      allLogs.sort((a, b) => {
-        if (a.date !== b.date) return (b.date || "").localeCompare(a.date || "");
-        const tA = a.createdAt?.seconds || 0;
-        const tB = b.createdAt?.seconds || 0;
-        return tB - tA;
-      });
-
-      updateStats();
-      renderDaysGrid();
-      if (activeModalDate && !dayModal.classList.contains("hidden")) {
-        renderDayModalContent(activeModalDate);
-      }
-    },
-    (error) => {
-      loadingState.classList.add("hidden");
-      showToast("Error loading logs: " + error.message);
-    }
-  );
-}
-
-// Quick Chips
-document.getElementById("quickChips").addEventListener("click", (e) => {
-  const chip = e.target.closest(".chip");
-  if (!chip) return;
-  entryExercise.value = chip.dataset.ex;
-  const firstWeight = mainSetsContainer.querySelector(".set-weight");
-  if (firstWeight) firstWeight.focus();
-});
-
-// Add Exercise Entry with Multi-Sets
-logForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!currentUser) return;
-
-  saveEntryBtn.disabled = true;
-  try {
-    const sets = readSetsFromContainer(mainSetsContainer);
-    await addDoc(getUserLogsRef(currentUser.uid), {
-      date: entryDate.value,
-      exercise: entryExercise.value.trim(),
-      unit: entryUnit.value,
-      sets,
-      remarks: entryRemarks.value.trim(),
-      createdAt: serverTimestamp()
-    });
-
-    entryExercise.value = "";
-    entryRemarks.value = "";
-    resetSetContainer(mainSetsContainer);
-    showToast("Exercise added to workout log!");
-  } catch (err) {
-    showToast("Failed to save: " + err.message);
-  } finally {
-    saveEntryBtn.disabled = false;
-  }
-});
-
-// Summary Statistics (Total Volume removed)
-function updateStats() {
-  const uniqueDays = new Set(allLogs.map((item) => item.date).filter(Boolean));
-  statWorkoutDays.textContent = uniqueDays.size;
-  statTotalLogs.textContent = allLogs.length;
-
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const cutoffISO = sevenDaysAgo.toISOString().split("T")[0];
-  const weekCount = allLogs.filter((item) => (item.date || "") >= cutoffISO).length;
-  statThisWeek.textContent = weekCount;
-}
-
-// Filter & Group Logs by Day
-function getFilteredLogs() {
-  const query = searchInput.value.trim().toLowerCase();
-  const dateFilter = filterDateInput.value;
-
-  if (query || dateFilter) {
-    clearFiltersBtn.classList.remove("hidden");
-  } else {
-    clearFiltersBtn.classList.add("hidden");
-  }
-
-  return allLogs.filter((item) => {
-    const matchesDate = !dateFilter || item.date === dateFilter;
-    const matchesQuery =
-      !query ||
-      (item.exercise || "").toLowerCase().includes(query) ||
-      (item.remarks || "").toLowerCase().includes(query);
-    return matchesDate && matchesQuery;
-  });
-}
-
-function renderDaysGrid() {
-  const filtered = getFilteredLogs();
-  daysGrid.innerHTML = "";
-
-  if (filtered.length === 0) {
+  if (allWorkouts.length === 0) {
     emptyState.classList.remove("hidden");
     return;
   }
   emptyState.classList.add("hidden");
 
-  const groupsMap = new Map();
-  filtered.forEach((entry) => {
-    const d = entry.date || "Unknown";
-    if (!groupsMap.has(d)) groupsMap.set(d, []);
-    groupsMap.get(d).push(entry);
+  // Group by date (newest first)
+  const grouped = new Map();
+  allWorkouts.forEach((w) => {
+    const key = w.date || "Unknown Date";
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(w);
   });
 
-  const sortedDates = Array.from(groupsMap.keys()).sort((a, b) => b.localeCompare(a));
-  const todayISO = getTodayISO();
+  const sortedDates = Array.from(grouped.keys()).sort((a, b) => b.localeCompare(a));
 
   sortedDates.forEach((dateKey) => {
-    const entries = groupsMap.get(dateKey);
-    const isToday = dateKey === todayISO;
+    const dayCard = document.createElement("div");
+    dayCard.className = "card";
 
-    const totalSetsCount = entries.reduce(
-      (sum, e) => sum + normalizeSets(e).length,
-      0
-    );
-    const totalReps = entries.reduce(
-      (sum, e) =>
-        sum + normalizeSets(e).reduce((sSum, s) => sSum + (Number(s.reps) || 0), 0),
-      0
-    );
-
-    const previewItems = entries.slice(0, 3);
-    const extraCount = entries.length - previewItems.length;
-
-    const pillsHtml =
-      previewItems
-        .map((e) => {
-          const sets = normalizeSets(e);
-          const unit = escapeHtml(e.unit || "kg");
-          const setsSummary = sets.map((s) => `${s.weight}${unit}×${s.reps}`).join(", ");
-          return `<span class="exercise-pill">${escapeHtml(e.exercise)} • ${setsSummary}</span>`;
-        })
-        .join("") +
-      (extraCount > 0 ? `<span class="exercise-pill">+${extraCount} more</span>` : "");
-
-    const card = document.createElement("article");
-    card.className = "day-card";
-    card.dataset.date = dateKey;
-    card.innerHTML = `
-      <div>
-        <div class="day-card-top">
-          <div>
-            <div class="day-card-date">${formatDisplayDate(dateKey)}</div>
-            <div class="day-card-weekday">${formatWeekday(dateKey)}</div>
-          </div>
-          <div style="display:flex; gap:6px; align-items:center;">
-            ${isToday ? `<span class="badge badge-emerald">Today</span>` : ""}
-            <span class="badge badge-slate">${entries.length} ${entries.length === 1 ? "log" : "logs"}</span>
-          </div>
-        </div>
-        <div class="day-pills" style="margin-top:14px;">
-          ${pillsHtml}
-        </div>
-      </div>
-      <div class="day-card-footer">
-        <span>${totalSetsCount} ${totalSetsCount === 1 ? "set" : "sets"} &bull; ${totalReps} reps</span>
-        <span class="day-card-cta">Open day &rarr;</span>
-      </div>
+    const header = document.createElement("div");
+    header.className = "day-card-header";
+    header.innerHTML = `
+      <span class="day-title">${formatDateHeading(dateKey)}</span>
+      <button type="button" class="btn btn-small btn-secondary">+ Add Exercise</button>
     `;
+    header.querySelector("button").addEventListener("click", () => openInlineAddModal(dateKey));
+    dayCard.appendChild(header);
 
-    card.addEventListener("click", () => openDayModal(dateKey));
-    daysGrid.appendChild(card);
+    const list = document.createElement("div");
+    list.className = "exercise-list";
+
+    grouped.get(dateKey).forEach((workout) => {
+      const item = document.createElement("div");
+      item.className = "exercise-item";
+
+      const setsArray = Array.isArray(workout.sets) ? workout.sets : [];
+      const pillsHtml = setsArray
+        .map((s, i) => `<span class="set-pill">S${i + 1}: ${s.weight}kg × ${s.reps}</span>`)
+        .join("");
+
+      item.innerHTML = `
+        <div class="exercise-top">
+          <span class="exercise-name"></span>
+          <div class="exercise-actions">
+            <button type="button" class="btn btn-small btn-outline edit-btn">Edit</button>
+            <button type="button" class="btn btn-small btn-danger delete-btn">Delete</button>
+          </div>
+        </div>
+        <div class="set-pills">${pillsHtml}</div>
+        ${workout.notes ? `<p class="exercise-notes"></p>` : ""}
+      `;
+
+      item.querySelector(".exercise-name").textContent = workout.exercise;
+      if (workout.notes) {
+        item.querySelector(".exercise-notes").textContent = workout.notes;
+      }
+
+      item.querySelector(".edit-btn").addEventListener("click", () => openEditModal(workout));
+      item.querySelector(".delete-btn").addEventListener("click", () => deleteWorkout(workout.id));
+
+      list.appendChild(item);
+    });
+
+    dayCard.appendChild(list);
+    workoutsList.appendChild(dayCard);
   });
 }
 
-searchInput.addEventListener("input", renderDaysGrid);
-filterDateInput.addEventListener("change", renderDaysGrid);
-clearFiltersBtn.addEventListener("click", () => {
-  searchInput.value = "";
-  filterDateInput.value = "";
-  renderDaysGrid();
-});
-
-// ================= DAY DETAILS MODAL =================
-function openDayModal(dateKey) {
-  activeModalDate = dateKey;
-  dayInlineForm.classList.add("hidden");
-  dayInlineForm.reset();
-  resetSetContainer(inlineSetsContainer);
-  renderDayModalContent(dateKey);
-  dayModal.classList.remove("hidden");
-}
-
-function closeDayModal() {
-  activeModalDate = null;
-  dayModal.classList.add("hidden");
-}
-
-function renderDayModalContent(dateKey) {
-  const dayEntries = allLogs.filter((item) => item.date === dateKey);
-  dayModalTitle.textContent = `${formatDisplayDate(dateKey)} (${formatWeekday(dateKey)})`;
-
-  if (dateKey === getTodayISO()) {
-    dayModalTodayBadge.classList.remove("hidden");
-  } else {
-    dayModalTodayBadge.classList.add("hidden");
-  }
-
-  const totalSetsCount = dayEntries.reduce((sum, e) => sum + normalizeSets(e).length, 0);
-  dayModalSubtitle.textContent = `${dayEntries.length} ${dayEntries.length === 1 ? "exercise" : "exercises"} &bull; ${totalSetsCount} ${totalSetsCount === 1 ? "set" : "sets"}`;
-
-  if (dayEntries.length === 0) {
-    dayEntriesList.innerHTML = `<div class="empty-state">No entries remaining for this day.</div>`;
-    return;
-  }
-
-  dayEntriesList.innerHTML = dayEntries
-    .map((entry) => {
-      const sets = normalizeSets(entry);
-      const unit = escapeHtml(entry.unit || "kg");
-      const setsMarkup = sets
-        .map(
-          (s, i) =>
-            `<span class="exercise-pill">Set ${s.setNumber ?? i + 1}: ${s.weight} ${unit} &times; ${s.reps} reps</span>`
-        )
-        .join(" ");
-
-      return `
-        <div class="entry-row">
-          <div class="entry-row-main">
-            <h4>${escapeHtml(entry.exercise)}</h4>
-            <div class="entry-metrics day-pills">${setsMarkup}</div>
-            ${entry.remarks ? `<p class="entry-remarks">${escapeHtml(entry.remarks)}</p>` : ""}
-          </div>
-          <div class="entry-row-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-action="edit" data-id="${entry.id}">Edit</button>
-            <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${entry.id}">Delete</button>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-}
-
-closeDayModalBtn.addEventListener("click", closeDayModal);
-dayModal.addEventListener("click", (e) => {
-  if (e.target === dayModal) closeDayModal();
-});
-
-toggleDayAddFormBtn.addEventListener("click", () => {
-  dayInlineForm.classList.toggle("hidden");
-  if (!dayInlineForm.classList.contains("hidden")) {
-    resetSetContainer(inlineSetsContainer);
-    inlineExercise.focus();
-  }
-});
-
-cancelInlineAddBtn.addEventListener("click", () => {
-  dayInlineForm.classList.add("hidden");
-  dayInlineForm.reset();
-  resetSetContainer(inlineSetsContainer);
-});
-
-dayInlineForm.addEventListener("submit", async (e) => {
+// Create Workout (Main Form)
+workoutForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!currentUser || !activeModalDate) return;
+  if (!currentUser) return;
 
-  saveInlineAddBtn.disabled = true;
-  try {
-    const sets = readSetsFromContainer(inlineSetsContainer);
-    await addDoc(getUserLogsRef(currentUser.uid), {
-      date: activeModalDate,
-      exercise: inlineExercise.value.trim(),
-      unit: inlineUnit.value,
-      sets,
-      remarks: inlineRemarks.value.trim(),
-      createdAt: serverTimestamp()
-    });
-    dayInlineForm.reset();
-    resetSetContainer(inlineSetsContainer);
-    dayInlineForm.classList.add("hidden");
-    showToast("Added exercise to session!");
-  } catch (err) {
-    showToast("Error adding entry: " + err.message);
-  } finally {
-    saveInlineAddBtn.disabled = false;
-  }
+  const sets = collectSets(mainSetsContainer);
+  if (sets.length === 0) return;
+
+  await addDoc(userWorkoutsCol(), {
+    date: workoutDate.value,
+    exercise: exerciseName.value.trim(),
+    sets,
+    notes: workoutNotes.value.trim(),
+    createdAt: serverTimestamp(),
+  });
+
+  exerciseName.value = "";
+  workoutNotes.value = "";
+  resetSetContainer(mainSetsContainer);
 });
 
-dayEntriesList.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-action]");
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const entry = allLogs.find((item) => item.id === id);
-  if (!entry) return;
+// Inline Add Modal
+function openInlineAddModal(dateKey) {
+  inlineDateInput.value = dateKey;
+  inlineDateDisplay.textContent = formatDateHeading(dateKey);
+  inlineExerciseName.value = "";
+  inlineNotes.value = "";
+  resetSetContainer(inlineSetsContainer);
+  inlineAddModal.classList.remove("hidden");
+}
 
-  if (btn.dataset.action === "edit") {
-    openEditModal(entry);
-  } else if (btn.dataset.action === "delete") {
-    openDeleteModal(entry);
-  }
+closeInlineModalBtn.addEventListener("click", () => {
+  inlineAddModal.classList.add("hidden");
 });
 
-// ================= EDIT MODAL =================
-function openEditModal(entry) {
-  editEntryId.value = entry.id;
-  editDate.value = entry.date || getTodayISO();
-  editExercise.value = entry.exercise || "";
-  editUnit.value = entry.unit || "kg";
-  editRemarks.value = entry.remarks || "";
-  resetSetContainer(editSetsContainer, normalizeSets(entry));
+inlineAddForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const sets = collectSets(inlineSetsContainer);
+  if (sets.length === 0) return;
+
+  await addDoc(userWorkoutsCol(), {
+    date: inlineDateInput.value,
+    exercise: inlineExerciseName.value.trim(),
+    sets,
+    notes: inlineNotes.value.trim(),
+    createdAt: serverTimestamp(),
+  });
+
+  inlineAddModal.classList.add("hidden");
+});
+
+// Edit Modal
+function openEditModal(workout) {
+  editWorkoutId.value = workout.id;
+  editDate.value = workout.date || getTodayISO();
+  editExerciseName.value = workout.exercise || "";
+  editNotes.value = workout.notes || "";
+  const existingSets =
+    Array.isArray(workout.sets) && workout.sets.length > 0
+      ? workout.sets
+      : [{ weight: "", reps: "" }];
+  resetSetContainer(editSetsContainer, existingSets);
   editModal.classList.remove("hidden");
 }
 
-function closeEditModal() {
+closeEditModalBtn.addEventListener("click", () => {
   editModal.classList.add("hidden");
-}
-
-closeEditModalBtn.addEventListener("click", closeEditModal);
-cancelEditBtn.addEventListener("click", closeEditModal);
-editModal.addEventListener("click", (e) => {
-  if (e.target === editModal) closeEditModal();
 });
 
 editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!currentUser || !editEntryId.value) return;
+  if (!currentUser) return;
 
-  saveEditBtn.disabled = true;
-  try {
-    const sets = readSetsFromContainer(editSetsContainer);
-    const docRef = doc(db, "users", currentUser.uid, "workouts", editEntryId.value);
-    await updateDoc(docRef, {
-      date: editDate.value,
-      exercise: editExercise.value.trim(),
-      unit: editUnit.value,
-      sets,
-      remarks: editRemarks.value.trim()
-    });
-    closeEditModal();
-    showToast("Exercise updated!");
-  } catch (err) {
-    showToast("Update failed: " + err.message);
-  } finally {
-    saveEditBtn.disabled = false;
-  }
-});
+  const id = editWorkoutId.value;
+  const sets = collectSets(editSetsContainer);
+  if (!id || sets.length === 0) return;
 
-// ================= DELETE MODAL =================
-function openDeleteModal(entry) {
-  pendingDeleteId = entry.id;
-  const sets = normalizeSets(entry);
-  deleteConfirmText.textContent = `Delete "${entry.exercise}" (${sets.length} ${sets.length === 1 ? "set" : "sets"})?`;
-  deleteModal.classList.remove("hidden");
-}
-
-function closeDeleteModal() {
-  pendingDeleteId = null;
-  deleteModal.classList.add("hidden");
-}
-
-closeDeleteModalBtn.addEventListener("click", closeDeleteModal);
-cancelDeleteBtn.addEventListener("click", closeDeleteModal);
-deleteModal.addEventListener("click", (e) => {
-  if (e.target === deleteModal) closeDeleteModal();
-});
-
-confirmDeleteBtn.addEventListener("click", async () => {
-  if (!currentUser || !pendingDeleteId) return;
-
-  confirmDeleteBtn.disabled = true;
-  try {
-    await deleteDoc(doc(db, "users", currentUser.uid, "workouts", pendingDeleteId));
-    closeDeleteModal();
-    showToast("Entry deleted.");
-  } catch (err) {
-    showToast("Delete failed: " + err.message);
-  } finally {
-    confirmDeleteBtn.disabled = false;
-  }
-});
-
-// ================= CSV EXPORT =================
-exportCsvBtn.addEventListener("click", () => {
-  if (allLogs.length === 0) {
-    showToast("No workout logs to export yet.");
-    return;
-  }
-
-  const headers = ["Date", "Exercise", "Set", "Weight", "Unit", "Reps", "Remarks"];
-  const rows = [];
-
-  allLogs.forEach((item) => {
-    const sets = normalizeSets(item);
-    sets.forEach((s, idx) => {
-      rows.push([
-        item.date || "",
-        `"${(item.exercise || "").replace(/"/g, '""')}"`,
-        s.setNumber ?? idx + 1,
-        s.weight ?? 0,
-        item.unit || "kg",
-        s.reps ?? 0,
-        `"${(item.remarks || "").replace(/"/g, '""')}"`
-      ]);
-    });
+  await updateDoc(doc(db, "users", currentUser.uid, "workouts", id), {
+    date: editDate.value,
+    exercise: editExerciseName.value.trim(),
+    sets,
+    notes: editNotes.value.trim(),
   });
 
-  const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  editModal.classList.add("hidden");
+});
 
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `liftlog-workouts-${getTodayISO()}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+// Delete Workout
+async function deleteWorkout(id) {
+  if (!currentUser) return;
+  await deleteDoc(doc(db, "users", currentUser.uid, "workouts", id));
+}
+
+// Auth State Listener
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+
+  if (unsubscribeWorkouts) {
+    unsubscribeWorkouts();
+    unsubscribeWorkouts = null;
+  }
+
+  if (user) {
+    authSection.classList.add("hidden");
+    appSection.classList.remove("hidden");
+    userEmailDisplay.textContent = user.email || "";
+
+    const q = query(userWorkoutsCol(), orderBy("createdAt", "desc"));
+    unsubscribeWorkouts = onSnapshot(q, (snapshot) => {
+      allWorkouts = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderWorkouts();
+    });
+  } else {
+    allWorkouts = [];
+    workoutsList.innerHTML = "";
+    appSection.classList.add("hidden");
+    authSection.classList.remove("hidden");
+  }
 });
